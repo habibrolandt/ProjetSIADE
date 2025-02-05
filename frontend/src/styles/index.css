@@ -1,0 +1,80 @@
+/* Styles personnalisés */
+.sidebar {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.main-content {
+  min-height: 100vh;
+}
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+}
+
+.login-form {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.camera-container {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.camera-container video {
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 0.5rem;
+}
+
+.attendance-card {
+  transition: transform 0.2s;
+}
+
+.attendance-card:hover {
+  transform: translateY(-5px);
+}
+
+.stats-card {
+  border-left: 4px solid;
+}
+
+.stats-card.primary {
+  border-left-color: #0d6efd;
+}
+
+.stats-card.success {
+  border-left-color: #198754;
+}
+
+.stats-card.warning {
+  border-left-color: #ffc107;
+}
+
+.stats-card.info {
+  border-left-color: #0dcaf0;
+}
+
