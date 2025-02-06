@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { Container, Row, Col, Card } from "react-bootstrap"
 import { Line } from "react-chartjs-2"
@@ -15,6 +17,15 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
+const StatCard = ({ title, value, color, loading }) => (
+  <Card className={`stats-card ${color} fade-in`}>
+    <Card.Body>
+      <Card.Title className="text-muted h6">{title}</Card.Title>
+      {loading ? <div className="loading-spinner" /> : <Card.Text className="h2">{value}</Card.Text>}
+    </Card.Body>
+  </Card>
+)
+
 export default function TableauDeBord() {
   const [statistiques, setStatistiques] = useState({
     presencesParJour: [],
@@ -22,6 +33,7 @@ export default function TableauDeBord() {
     totalEmployes: 0,
     presentsAujourdhui: 0,
   })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchStatistiques = async () => {
@@ -30,12 +42,13 @@ export default function TableauDeBord() {
         setStatistiques(response.data)
       } catch (error) {
         console.error("Erreur lors de la récupération des statistiques:", error)
+      } finally {
+        setLoading(false)
       }
     }
 
     fetchStatistiques()
-    const interval = setInterval(fetchStatistiques, 300000) // Rafraîchir toutes les 5 minutes
-
+    const interval = setInterval(fetchStatistiques, 300000)
     return () => clearInterval(interval)
   }, [])
 
@@ -45,22 +58,30 @@ export default function TableauDeBord() {
       {
         label: "Nombre de présences",
         data: statistiques.presencesParJour.map((jour) => jour.count),
-        fill: false,
-        borderColor: "rgb(75, 192, 192)",
-        tension: 0.1,
+        fill: true,
+        borderColor: "#0d6efd",
+        backgroundColor: "rgba(13, 110, 253, 0.1)",
+        tension: 0.4,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       },
     ],
   }
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: "top",
       },
       title: {
         display: true,
-        text: "Présences par jour",
+        text: "Évolution des présences",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
       },
     },
     scales: {
@@ -71,59 +92,59 @@ export default function TableauDeBord() {
         },
       },
     },
+    animation: {
+      duration: 1000,
+      easing: "easeInOutQuart",
+    },
   }
 
   return (
-    <Container fluid>
+    <Container className="py-4 fade-in">
       <h1 className="mb-4">Tableau de Bord</h1>
 
       <Row className="mb-4">
         <Col md={3}>
-          <Card className="stats-card primary">
-            <Card.Body>
-              <Card.Title>Taux de Présence</Card.Title>
-              <Card.Text className="h2">{statistiques.tauxPresence}%</Card.Text>
-            </Card.Body>
-          </Card>
+          <StatCard
+            title="Taux de Présence"
+            value={`${statistiques.tauxPresence}%`}
+            color="primary"
+            loading={loading}
+          />
         </Col>
-
         <Col md={3}>
-          <Card className="stats-card success">
-            <Card.Body>
-              <Card.Title>Total Employés</Card.Title>
-              <Card.Text className="h2">{statistiques.totalEmployes}</Card.Text>
-            </Card.Body>
-          </Card>
+          <StatCard title="Total Employés" value={statistiques.totalEmployes} color="success" loading={loading} />
         </Col>
-
         <Col md={3}>
-          <Card className="stats-card warning">
-            <Card.Body>
-              <Card.Title>Présents Aujourd'hui</Card.Title>
-              <Card.Text className="h2">{statistiques.presentsAujourdhui}</Card.Text>
-            </Card.Body>
-          </Card>
+          <StatCard
+            title="Présents Aujourd'hui"
+            value={statistiques.presentsAujourdhui}
+            color="warning"
+            loading={loading}
+          />
         </Col>
-
         <Col md={3}>
-          <Card className="stats-card info">
-            <Card.Body>
-              <Card.Title>Absents</Card.Title>
-              <Card.Text className="h2">{statistiques.totalEmployes - statistiques.presentsAujourdhui}</Card.Text>
-            </Card.Body>
-          </Card>
+          <StatCard
+            title="Absents"
+            value={statistiques.totalEmployes - statistiques.presentsAujourdhui}
+            color="info"
+            loading={loading}
+          />
         </Col>
       </Row>
 
-      <Row>
-        <Col>
-          <Card>
-            <Card.Body>
+      <Card className="chart-container">
+        <Card.Body>
+          {loading ? (
+            <div className="d-flex justify-content-center align-items-center" style={{ height: "400px" }}>
+              <div className="loading-spinner" />
+            </div>
+          ) : (
+            <div style={{ height: "400px" }}>
               <Line data={donnees} options={options} />
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+            </div>
+          )}
+        </Card.Body>
+      </Card>
     </Container>
   )
 }

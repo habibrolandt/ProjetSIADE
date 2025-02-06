@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require("uuid")
 const auth = require("../middleware/auth")
 const Employe = require("../modeles/Employe")
 const Presence = require("../modeles/Presence")
-// const { faceapi } = require("../utils/faceRecognition")
+const { faceapi } = require("../utils/faceRecognition")
 
 // POST /api/reconnaissance-faciale
 router.post("/", auth, async (req, res) => {
@@ -47,8 +47,8 @@ router.post("/", auth, async (req, res) => {
       ...resultat,
     })
   } catch (error) {
-    console.error("Erreur reconnaissance faciale:", error)
-    res.status(500).json({ message: "Erreur lors de la reconnaissance faciale" })
+    console.error("Erreur détaillée lors de la reconnaissance faciale:", error)
+    res.status(500).json({ message: "Erreur lors de la reconnaissance faciale", error: error.message })
   }
 })
 

@@ -33,7 +33,8 @@ router.get("/", auth, async (req, res) => {
     const employes = await Employe.find().select("-motDePasse")
     res.json(employes)
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur" })
+    console.error("Erreur lors de la récupération des employés:", error)
+    res.status(500).json({ message: "Erreur serveur lors de la récupération des employés" })
   }
 })
 
@@ -66,7 +67,8 @@ router.post("/", auth, verificationRole(["admin", "rh"]), upload.single("photo")
     employe.motDePasse = undefined
     res.status(201).json(employe)
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur" })
+    console.error("Erreur lors de l'ajout d'un employé:", error)
+    res.status(500).json({ message: "Erreur serveur lors de l'ajout de l'employé", error: error.message })
   }
 })
 
@@ -88,7 +90,8 @@ router.put("/:id", auth, verificationRole(["admin", "rh"]), upload.single("photo
 
     res.json(employe)
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur" })
+    console.error("Erreur lors de la mise à jour d'un employé:", error)
+    res.status(500).json({ message: "Erreur serveur lors de la mise à jour de l'employé", error: error.message })
   }
 })
 
@@ -101,7 +104,8 @@ router.delete("/:id", auth, verificationRole(["admin"]), async (req, res) => {
     }
     res.json({ message: "Employé supprimé avec succès" })
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur" })
+    console.error("Erreur lors de la suppression d'un employé:", error)
+    res.status(500).json({ message: "Erreur serveur lors de la suppression de l'employé", error: error.message })
   }
 })
 

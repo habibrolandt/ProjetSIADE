@@ -1,4 +1,7 @@
+"use client"
+
 import { useRef, useState, useEffect } from "react"
+import { Container, Row, Col, Form, Button, Card, Alert } from "react-bootstrap"
 import api from "../services/api"
 import { toast } from "react-toastify"
 
@@ -10,9 +13,13 @@ export default function ReconnaissanceFaciale() {
   const [resultat, setResultat] = useState(null)
   const [cameras, setCameras] = useState([])
   const [cameraActive, setCameraActive] = useState("")
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    // Récupérer la liste des caméras disponibles
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Votre navigateur ne supporte pas l'accès à la caméra. Veuillez utiliser un navigateur moderne.")
+      return
+    }
     async function getCameras() {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices()
@@ -23,6 +30,7 @@ export default function ReconnaissanceFaciale() {
         }
       } catch (error) {
         console.error("Erreur lors de la récupération des caméras:", error)
+        setError("Impossible d'accéder aux caméras. Veuillez vérifier les permissions.")
         toast.error("Impossible d'accéder aux caméras")
       }
     }
@@ -50,8 +58,6 @@ export default function ReconnaissanceFaciale() {
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
           deviceId: cameraActive ? { exact: cameraActive } : undefined,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
         },
       })
 
@@ -59,8 +65,16 @@ export default function ReconnaissanceFaciale() {
       if (videoRef.current) {
         videoRef.current.srcObject = newStream
       }
+      setError(null)
     } catch (error) {
       console.error("Erreur lors de l'accès à la caméra:", error)
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        setError(
+          "L'accès à la caméra a été refusé. Veuillez autoriser l'accès dans les paramètres de votre navigateur.",
+        )
+      } else {
+        setError("Impossible d'accéder à la caméra. Veuillez vérifier votre connexion et réessayer.")
+      }
       toast.error("Impossible d'accéder à la caméra")
     }
   }
@@ -79,6 +93,7 @@ export default function ReconnaissanceFaciale() {
   const handleReconnaissance = async () => {
     setLoading(true)
     setResultat(null)
+    setError(null)
 
     try {
       const imageData = captureImage()
@@ -94,10 +109,12 @@ export default function ReconnaissanceFaciale() {
         setResultat(response.data)
         toast.success("Présence enregistrée avec succès")
       } else {
+        setError("Personne non reconnue. Veuillez réessayer ou contacter un administrateur.")
         toast.warning("Personne non reconnue")
       }
     } catch (error) {
-      console.error("Erreur lors de la reconnaissance:", error)
+      console.error("Erreur détaillée lors de la reconnaissance:", error.response || error)
+      setError("Erreur lors de la reconnaissance faciale. Veuillez réessayer.")
       toast.error("Erreur lors de la reconnaissance faciale")
     } finally {
       setLoading(false)
@@ -105,71 +122,84 @@ export default function ReconnaissanceFaciale() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Reconnaissance Faciale</h1>
+    <Container className="py-4 fade-in">
+      <h1 className="mb-4">Reconnaissance Faciale</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sélectionner une caméra</label>
-            <select
-              value={cameraActive}
-              onChange={(e) => setCameraActive(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              {cameras.map((camera) => (
-                <option key={camera.deviceId} value={camera.deviceId}>
-                  {camera.label || `Caméra ${camera.deviceId.slice(0, 5)}...`}
-                </option>
-              ))}
-            </select>
-          </div>
+      <Row>
+        <Col md={6}>
+          <Card className="mb-4 slide-in">
+            <Card.Body>
+              <Form.Group className="mb-3">
+                <Form.Label>Sélectionner une caméra</Form.Label>
+                <Form.Select value={cameraActive} onChange={(e) => setCameraActive(e.target.value)}>
+                  {cameras.map((camera) => (
+                    <option key={camera.deviceId} value={camera.deviceId}>
+                      {camera.label || `Caméra ${camera.deviceId.slice(0, 5)}...`}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
 
-          <div className="relative aspect-video mb-4">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-lg" />
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-          </div>
-
-          <button
-            onClick={handleReconnaissance}
-            disabled={loading}
-            className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {loading ? "Reconnaissance en cours..." : "Lancer la reconnaissance"}
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Résultat</h2>
-
-          {resultat ? (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <img
-                  src={resultat.photo || "/placeholder.svg"}
-                  alt="Photo de l'employé"
-                  className="h-20 w-20 rounded-full object-cover"
+              <div className="position-relative mb-3" style={{ aspectRatio: "16/9" }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-100 h-100 rounded"
+                  style={{ objectFit: "cover" }}
                 />
-                <div>
-                  <h3 className="text-lg font-medium">
-                    {resultat.prenom} {resultat.nom}
-                  </h3>
-                  <p className="text-sm text-gray-500">{resultat.poste}</p>
-                </div>
+                <canvas ref={canvasRef} style={{ display: "none" }} />
               </div>
 
-              <div className="p-4 bg-green-50 rounded-md">
-                <p className="text-sm text-green-700">
-                  Présence enregistrée le {new Date().toLocaleDateString()} à {new Date().toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">En attente d'une reconnaissance...</p>
-          )}
-        </div>
-      </div>
-    </div>
+              <Button onClick={handleReconnaissance} disabled={loading} className="w-100 btn-animate" variant="primary">
+                {loading ? "Reconnaissance en cours..." : "Lancer la reconnaissance"}
+              </Button>
+
+              {error && (
+                <Alert variant="danger" className="mt-3">
+                  {error}
+                </Alert>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col md={6}>
+          <Card className="slide-in">
+            <Card.Body>
+              <h2 className="h4 mb-3">Résultat</h2>
+
+              {resultat ? (
+                <div className="fade-in">
+                  <div className="d-flex align-items-center mb-3">
+                    <img
+                      src={resultat.photo || "/placeholder.svg"}
+                      alt="Photo de l'employé"
+                      className="rounded-circle me-3"
+                      width="64"
+                      height="64"
+                    />
+                    <div>
+                      <h3 className="h5 mb-1">
+                        {resultat.prenom} {resultat.nom}
+                      </h3>
+                      <p className="text-muted mb-0">{resultat.poste}</p>
+                    </div>
+                  </div>
+
+                  <Alert variant="success">
+                    Présence enregistrée le {new Date().toLocaleDateString()} à {new Date().toLocaleTimeString()}
+                  </Alert>
+                </div>
+              ) : (
+                <p className="text-center text-muted py-5">En attente d'une reconnaissance...</p>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   )
 }
 

@@ -1,112 +1,96 @@
-import React, { useState } from 'react';
-import { toast } from 'react-toastify';
-import api from '../services/api';
+"use client"
+
+import { useState } from "react"
+import { Container, Form, Button, Card, Alert } from "react-bootstrap"
+import { toast } from "react-toastify"
+import api from "../services/api"
 
 export default function ExportDonnees() {
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [format, setFormat] = useState('excel');
-  const [loading, setLoading] = useState(false);
+  const [dateDebut, setDateDebut] = useState("")
+  const [dateFin, setDateFin] = useState("")
+  const [format, setFormat] = useState("excel")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const handleExport = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
     try {
       const response = await api.get(`/export`, {
         params: {
           dateDebut,
           dateFin,
-          format
+          format,
         },
-        responseType: 'blob'
-      });
+        responseType: "blob",
+      })
 
       // Créer un URL pour le fichier
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement("a")
+      link.href = url
+
       // Définir le nom du fichier
-      const extension = format === 'excel' ? 'xlsx' : 'pdf';
-      const fileName = `export_presences_${dateDebut}_${dateFin}.${extension}`;
-      link.setAttribute('download', fileName);
-      
+      const extension = format === "excel" ? "xlsx" : "pdf"
+      const fileName = `export_presences_${dateDebut}_${dateFin}.${extension}`
+      link.setAttribute("download", fileName)
+
       // Déclencher le téléchargement
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('Export réussi');
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+
+      toast.success("Export réussi")
     } catch (error) {
-      toast.error('Erreur lors de l\'export');
-      console.error('Erreur d\'export:', error);
+      console.error("Erreur d'export:", error)
+      setError("Une erreur est survenue lors de l'export. Veuillez réessayer.")
+      toast.error("Erreur lors de l'export")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Export des Données</h1>
+    <Container className="py-4 fade-in">
+      <h1 className="mb-4">Export des Données</h1>
 
-      <div className="max-w-xl bg-white rounded-lg shadow p-6">
-        <form onSubmit={handleExport} className="space-y-6">
-          <div>
-            <label htmlFor="dateDebut" className="block text-sm font-medium text-gray-700">
-              Date de début
-            </label>
-            <input
-              type="date"
-              id="dateDebut"
-              value={dateDebut}
-              onChange={(e) => setDateDebut(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
+      <Card className="slide-in">
+        <Card.Body>
+          <Form onSubmit={handleExport}>
+            <Form.Group className="mb-3">
+              <Form.Label>Date de début</Form.Label>
+              <Form.Control type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} required />
+            </Form.Group>
 
-          <div>
-            <label htmlFor="dateFin" className="block text-sm font-medium text-gray-700">
-              Date de fin
-            </label>
-            <input
-              type="date"
-              id="dateFin"
-              value={dateFin}
-              onChange={(e) => setDateFin(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
+            <Form.Group className="mb-3">
+              <Form.Label>Date de fin</Form.Label>
+              <Form.Control type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} required />
+            </Form.Group>
 
-          <div>
-            <label htmlFor="format" className="block text-sm font-medium text-gray-700">
-              Format d'export
-            </label>
-            <select
-              id="format"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="excel">Excel (.xlsx)</option>
-              <option value="pdf">PDF (.pdf)</option>
-            </select>
-          </div>
+            <Form.Group className="mb-3">
+              <Form.Label>Format d'export</Form.Label>
+              <Form.Select value={format} onChange={(e) => setFormat(e.target.value)}>
+                <option value="excel">Excel (.xlsx)</option>
+                <option value="pdf">PDF (.pdf)</option>
+              </Form.Select>
+            </Form.Group>
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? 'Export en cours...' : 'Exporter les données'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+            {error && (
+              <Alert variant="danger" className="mb-3">
+                {error}
+              </Alert>
+            )}
+
+            <Button type="submit" variant="primary" disabled={loading} className="w-100 btn-animate">
+              {loading ? "Export en cours..." : "Exporter les données"}
+            </Button>
+          </Form>
+        </Card.Body>
+      </Card>
+    </Container>
+  )
 }
+

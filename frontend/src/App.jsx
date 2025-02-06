@@ -30,9 +30,9 @@ export default function App() {
           <Switch>
             <Route path="/login" component={Authentification} />
             <RoutePrivee path="/">
-              <div className="d-flex">
+              <div className="min-vh-100 bg-light">
                 <Navigation />
-                <main className="flex-grow-1 p-4">
+                <main className="container-fluid py-3">
                   <Switch>
                     <Route exact path="/" component={TableauDeBord} />
                     <Route path="/employes" component={GestionEmployes} />
