@@ -13,9 +13,10 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js"
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 const StatCard = ({ title, value, color, loading }) => (
   <Card className={`stats-card ${color} fade-in`}>

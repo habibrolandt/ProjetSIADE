@@ -1,105 +1,113 @@
 const express = require("express")
 const router = express.Router()
-const multer = require("multer")
-const path = require("path")
+const Presence = require("../modeles/Presence")
 const Employe = require("../modeles/Employe")
 const auth = require("../middleware/auth")
 const verificationRole = require("../middleware/verificationRole")
 
-// Configuration de Multer pour le stockage des photos
-const storage = multer.diskStorage({
-  destination: "uploads/photos/",
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname))
-  },
-})
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true)
-    } else {
-      cb(new Error("Le fichier doit être une image"))
-    }
-  },
-})
-
-// GET /api/employes
+// GET /api/presences
 router.get("/", auth, async (req, res) => {
   try {
-    const employes = await Employe.find().select("-motDePasse")
-    res.json(employes)
+    const { page = 1, limite = 10, dateDebut, dateFin, employe } = req.query
+    const query = {}
+
+    if (dateDebut || dateFin) {
+      query.date = {}
+      if (dateDebut) query.date.$gte = new Date(dateDebut)
+      if (dateFin) query.date.$lte = new Date(dateFin)
+    }
+
+    if (employe) {
+      query.employe = employe
+    }
+
+    const skip = (page - 1) * limite
+
+    const [presences, total] = await Promise.all([
+      Presence.find(query)
+        .populate("employe", "-motDePasse")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(Number.parseInt(limite)),
+      Presence.countDocuments(query),
+    ])
+
+    res.json({
+      presences,
+      page: Number.parseInt(page),
+      totalPages: Math.ceil(total / limite),
+      total,
+    })
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur" })
   }
 })
 
-// POST /api/employes
-router.post("/", auth, verificationRole(["admin", "rh"]), upload.single("photo"), async (req, res) => {
+// GET /api/presences/statistiques
+router.get("/statistiques", auth, async (req, res) => {
   try {
-    const { nom, prenom, email, motDePasse, poste, role } = req.body
+    const maintenant = new Date()
+    const debutJour = new Date(maintenant.setHours(0, 0, 0, 0))
+    const finJour = new Date(maintenant.setHours(23, 59, 59, 999))
 
-    if (!req.file) {
-      return res.status(400).json({ message: "La photo est requise" })
-    }
+    const [presencesAujourdhui, totalEmployes, presencesParJour] = await Promise.all([
+      Presence.countDocuments({
+        date: { $gte: debutJour, $lte: finJour },
+        type: "entree",
+      }),
+      Employe.countDocuments({ actif: true }),
+      Presence.aggregate([
+        {
+          $match: {
+            date: {
+              $gte: new Date(maintenant.getTime() - 7 * 24 * 60 * 60 * 1000),
+            },
+            type: "entree",
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ])
 
-    const employeExistant = await Employe.findOne({ email })
-    if (employeExistant) {
-      return res.status(400).json({ message: "Cet email est déjà utilisé" })
-    }
+    const tauxPresence = totalEmployes > 0 ? Math.round((presencesAujourdhui / totalEmployes) * 100) : 0
 
-    const employe = new Employe({
-      nom,
-      prenom,
-      email,
-      motDePasse,
-      poste,
-      role: role || "employe",
-      photo: `/uploads/photos/${req.file.filename}`,
+    res.json({
+      presencesAujourdhui,
+      totalEmployes,
+      tauxPresence,
+      presencesParJour: presencesParJour.map((p) => ({
+        date: p._id,
+        count: p.count,
+      })),
+    })
+  } catch (error) {
+    console.error("Erreur dans /api/presences/statistiques:", error)
+    res.status(500).json({ message: "Erreur serveur" })
+  }
+})
+
+// POST /api/presences
+router.post("/", auth, async (req, res) => {
+  try {
+    const { type, methode } = req.body
+
+    const presence = new Presence({
+      employe: req.user.id,
+      type,
+      methode,
+      date: new Date(),
     })
 
-    await employe.save()
+    await presence.save()
+    await presence.populate("employe", "-motDePasse")
 
-    employe.motDePasse = undefined
-    res.status(201).json(employe)
-  } catch (error) {
-    res.status(500).json({ message: "Erreur serveur" })
-  }
-})
-
-// PUT /api/employes/:id
-router.put("/:id", auth, verificationRole(["admin", "rh"]), upload.single("photo"), async (req, res) => {
-  try {
-    const updates = { ...req.body }
-    if (req.file) {
-      updates.photo = `/uploads/photos/${req.file.filename}`
-    }
-
-    const employe = await Employe.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true }).select(
-      "-motDePasse",
-    )
-
-    if (!employe) {
-      return res.status(404).json({ message: "Employé non trouvé" })
-    }
-
-    res.json(employe)
-  } catch (error) {
-    res.status(500).json({ message: "Erreur serveur" })
-  }
-})
-
-// DELETE /api/employes/:id
-router.delete("/:id", auth, verificationRole(["admin"]), async (req, res) => {
-  try {
-    const employe = await Employe.findByIdAndDelete(req.params.id)
-    if (!employe) {
-      return res.status(404).json({ message: "Employé non trouvé" })
-    }
-    res.json({ message: "Employé supprimé avec succès" })
+    res.status(201).json(presence)
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur" })
   }

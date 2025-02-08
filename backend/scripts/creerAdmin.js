@@ -12,14 +12,12 @@ async function creerAdmin() {
     const db = client.db("ProjetReconnaissanceFaciale");
     const collection = db.collection("employes"); // Collection pour les employés
 
-    // Vérifier si un admin existe déjà
     const adminExistant = await collection.findOne({ role: "admin" });
     if (adminExistant) {
       console.log("Un administrateur existe déjà !");
       return;
     }
 
-    // Créer le hash du mot de passe
     const salt = await bcrypt.genSalt(10);
     const motDePasseHash = await bcrypt.hash("admin123", salt);
 
@@ -33,7 +31,7 @@ async function creerAdmin() {
       poste: "Administrateur Système",
       dateCreation: new Date(),
       actif: true,
-      photo: "/uploads/photos/default-admin.png" // Photo par défaut
+      photo: "/uploads/photos/default-admin.png" 
     };
 
     const resultat = await collection.insertOne(admin);

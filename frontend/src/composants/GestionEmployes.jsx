@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Container, Row, Col, Form, Button, Table, Card, Alert } from "react-bootstrap"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { Container, Row, Col, Form, Button, Table, Card, Alert, Modal } from "react-bootstrap"
+import Webcam from "react-webcam"
 import api from "../services/api"
 import { toast } from "react-toastify"
 
@@ -20,6 +21,12 @@ export default function GestionEmployes() {
   const [mode, setMode] = useState("creation")
   const [selectedId, setSelectedId] = useState(null)
   const [error, setError] = useState(null)
+  const [showWebcam, setShowWebcam] = useState(false)
+  const [photos, setPhotos] = useState([])
+  const [currentAngle, setCurrentAngle] = useState(0)
+  const webcamRef = useRef(null)
+
+  const angles = ["Face", "Profil gauche", "Profil droit"]
 
   useEffect(() => {
     chargerEmployes()
@@ -40,6 +47,20 @@ export default function GestionEmployes() {
     }
   }
 
+  const handleCapture = useCallback(() => {
+    const imageSrc = webcamRef.current.getScreenshot()
+    setPhotos((prev) => [...prev, imageSrc])
+
+    if (currentAngle < angles.length - 1) {
+      setCurrentAngle((prev) => prev + 1)
+      toast.info(`Veuillez tourner votre tête vers la ${angles[currentAngle + 1].toLowerCase()}`)
+    } else {
+      setShowWebcam(false)
+      setCurrentAngle(0)
+      toast.success("Visage enregistré avec succès sous différents angles !")
+    }
+  }, [webcamRef, currentAngle, setPhotos, setShowWebcam, setCurrentAngle, toast])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -51,6 +72,10 @@ export default function GestionEmployes() {
         if (formData[key] !== null) {
           formDataToSend.append(key, formData[key])
         }
+      })
+
+      photos.forEach((photo, index) => {
+        formDataToSend.append(`photo${index}`, dataURLtoFile(photo, `photo${index}.jpg`))
       })
 
       console.log("Données envoyées:", Object.fromEntries(formDataToSend))
@@ -75,6 +100,18 @@ export default function GestionEmployes() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const dataURLtoFile = (dataurl, filename) => {
+    let arr = dataurl.split(","),
+      mime = arr[0].match(/:(.*?);/)[1],
+      bstr = atob(arr[1]),
+      n = bstr.length,
+      u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
+    }
+    return new File([u8arr], filename, { type: mime })
   }
 
   const handleEdit = (employe) => {
@@ -120,6 +157,8 @@ export default function GestionEmployes() {
     })
     setMode("creation")
     setSelectedId(null)
+    setPhotos([])
+    setCurrentAngle(0)
   }
 
   return (
@@ -188,12 +227,25 @@ export default function GestionEmployes() {
                 </Form.Group>
 
                 <Form.Group className="mb-3">
-                  <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    onChange={(e) => setFormData({ ...formData, photo: e.target.files[0] })}
-                    accept="image/*"
-                  />
+                  <Form.Label>Photos</Form.Label>
+                  <div>
+                    <Button onClick={() => setShowWebcam(true)} className="mb-2 w-100">
+                      Prendre des photos
+                    </Button>
+                    {photos.length > 0 && (
+                      <div className="d-flex flex-wrap gap-2 mt-2">
+                        {photos.map((photo, index) => (
+                          <img
+                            key={index}
+                            src={photo || "/placeholder.svg"}
+                            alt={`Photo ${index + 1}`}
+                            className="img-thumbnail"
+                            style={{ width: "100px", height: "100px", objectFit: "cover" }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </Form.Group>
 
                 {mode === "creation" && (
@@ -286,7 +338,48 @@ export default function GestionEmployes() {
           </Card>
         </Col>
       </Row>
+
+      <Modal show={showWebcam} onHide={() => setShowWebcam(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Capture de photos</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="text-center mb-3">
+            <h5>Angle actuel : {angles[currentAngle]}</h5>
+            <p>
+              Photo {currentAngle + 1} sur {angles.length}
+            </p>
+          </div>
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{ facingMode: "user" }}
+            className="w-100"
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowWebcam(false)}>
+            Fermer
+          </Button>
+          <Button variant="primary" onClick={handleCapture}>
+            Capturer
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   )
+}
+
+function dataURLtoFile(dataurl, filename) {
+  let arr = dataurl.split(","),
+    mime = arr[0].match(/:(.*?);/)[1],
+    bstr = atob(arr[1]),
+    n = bstr.length,
+    u8arr = new Uint8Array(n)
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n)
+  }
+  return new File([u8arr], filename, { type: mime })
 }
 
