@@ -3,6 +3,7 @@ const router = express.Router()
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const Employe = require("../modeles/Employe")
+const auth = require("../middleware/auth")
 
 // POST /api/auth/connexion
 router.post("/connexion", async (req, res) => {
@@ -31,6 +32,20 @@ router.post("/connexion", async (req, res) => {
     res.json({ token, utilisateur: employe })
   } catch (error) {
     console.error("Erreur lors de la connexion:", error)
+    res.status(500).json({ message: "Erreur serveur" })
+  }
+})
+
+// GET /api/auth/me
+router.get("/me", auth, async (req, res) => {
+  try {
+    const employe = await Employe.findById(req.user.id).select("-motDePasse")
+    if (!employe) {
+      return res.status(404).json({ message: "Employé non trouvé" })
+    }
+    res.json(employe)
+  } catch (error) {
+    console.error("Erreur dans /api/auth/me:", error)
     res.status(500).json({ message: "Erreur serveur" })
   }
 })
