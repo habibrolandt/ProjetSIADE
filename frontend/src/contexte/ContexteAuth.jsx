@@ -40,9 +40,13 @@ export function ContexteAuthProvider({ children }) {
         motDePasse,
       })
       const { token, utilisateur } = response.data
-      localStorage.setItem("token", token)
-      setUtilisateur(utilisateur)
-      return utilisateur
+      if (token && utilisateur) {
+        localStorage.setItem("token", token)
+        setUtilisateur(utilisateur)
+        return utilisateur
+      } else {
+        throw new Error("Données de connexion invalides")
+      }
     } catch (error) {
       console.error("Erreur de connexion:", error)
       throw error

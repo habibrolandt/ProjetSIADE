@@ -82,7 +82,11 @@ export default function GestionEmployes() {
 
       let response
       if (mode === "creation") {
-        response = await api.post("/employes", formDataToSend)
+        response = await api.post("/employes", formDataToSend, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        })
         toast.success("Employé ajouté avec succès")
       } else {
         response = await api.put(`/employes/${selectedId}`, formDataToSend)
