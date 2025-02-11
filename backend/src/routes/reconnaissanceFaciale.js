@@ -1,7 +1,7 @@
 const express = require("express")
 const router = express.Router()
 const path = require("path")
-const fs = require("fs")
+const fs = require("fs").promises
 const { v4: uuidv4 } = require("uuid")
 const auth = require("../middleware/auth")
 const Employe = require("../modeles/Employe")
@@ -21,7 +21,12 @@ const loadModels = async () => {
     console.log("📂 Chemin des modèles:", modelPath)
 
     // Vérifier si le dossier existe
-    if (!fs.existsSync(modelPath)) {
+    if (
+      !(await fs
+        .access(modelPath)
+        .then(() => true)
+        .catch(() => false))
+    ) {
       throw new Error(`Le dossier models n'existe pas: ${modelPath}`)
     }
 
@@ -40,7 +45,12 @@ const loadModels = async () => {
     // Vérifier si tous les fichiers existent
     for (const file of requiredFiles) {
       const filePath = path.join(modelPath, file)
-      if (!fs.existsSync(filePath)) {
+      if (
+        !(await fs
+          .access(filePath)
+          .then(() => true)
+          .catch(() => false))
+      ) {
         throw new Error(`Fichier manquant: ${file}`)
       }
       console.log(`✅ Fichier trouvé: ${file}`)
@@ -78,25 +88,24 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ message: "Image requise" })
     }
 
-  
     const tempDir = path.join(__dirname, "../../uploads/temp")
-    await fs.promises.mkdir(tempDir, { recursive: true })
+    await fs.mkdir(tempDir, { recursive: true })
 
     // Sauvegarder l'image temporairement
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "")
     const buffer = Buffer.from(base64Data, "base64")
     const tempImagePath = path.join(tempDir, `${uuidv4()}.jpg`)
-    await fs.promises.writeFile(tempImagePath, buffer)
+    await fs.writeFile(tempImagePath, buffer)
 
     // Reconnaissance faciale
     const img = await canvas.loadImage(tempImagePath)
     const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors()
 
     // Nettoyage du fichier temporaire
-    await fs.promises.unlink(tempImagePath).catch(console.error)
+    await fs.unlink(tempImagePath).catch(console.error)
 
     if (detections.length === 0) {
-      return res.status(404).json({ message: "Aucun visage détecté dans l'image" })
+      return res.status(404).json({ success: false, message: "Aucun visage détecté dans l'image" })
     }
 
     const employes = await Employe.find()
@@ -123,7 +132,7 @@ router.post("/", auth, async (req, res) => {
     const validDescriptors = labeledDescriptors.filter((desc) => desc !== null)
 
     if (validDescriptors.length === 0) {
-      return res.status(500).json({ message: "Erreur lors de la comparaison des visages" })
+      return res.status(500).json({ success: false, message: "Erreur lors de la comparaison des visages" })
     }
 
     const faceMatcher = new faceapi.FaceMatcher(validDescriptors)
@@ -140,6 +149,20 @@ router.post("/", auth, async (req, res) => {
       })
       await presence.save()
 
+      // Simuler l'état de l'employé et les recommandations
+      const etatEmploye = {
+        fatigue: Math.random(),
+        stress: Math.random(),
+      }
+
+      const recommandations = []
+      if (etatEmploye.fatigue > 0.7) {
+        recommandations.push("Prenez une pause pour vous reposer")
+      }
+      if (etatEmploye.stress > 0.7) {
+        recommandations.push("Essayez quelques exercices de respiration pour réduire le stress")
+      }
+
       res.json({
         success: true,
         message: "Présence enregistrée avec succès",
@@ -148,14 +171,18 @@ router.post("/", auth, async (req, res) => {
           nom: matchedEmploye.nom,
           prenom: matchedEmploye.prenom,
           photo: matchedEmploye.photo,
+          poste: matchedEmploye.poste,
         },
+        etatEmploye,
+        recommandations,
       })
     } else {
-      res.status(404).json({ message: "Personne non reconnue" })
+      res.json({ success: false, message: "Personne non reconnue" })
     }
   } catch (error) {
     console.error("Erreur détaillée lors de la reconnaissance faciale:", error)
     res.status(500).json({
+      success: false,
       message: "Erreur lors de la reconnaissance faciale",
       error: error.message,
     })

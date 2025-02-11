@@ -30,4 +30,3 @@ employeSchema.methods.verifierMotDePasse = async function (motDePasseSaisi) {
 }
 
 module.exports = mongoose.model("Employe", employeSchema)
-

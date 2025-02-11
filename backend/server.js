@@ -3,11 +3,12 @@ const mongoose = require("mongoose")
 const cors = require("cors")
 const path = require("path")
 require("dotenv").config()
-const sharp = require("sharp") // Pour le traitement d'images
+const multer = require("multer")
+const sharp = require("sharp")
 
 let tf
 try {
-  tf = require("sharp") // Pour la reconnaissance faciale
+  tf = require("@tensorflow/tfjs-node")
 } catch (error) {
   console.warn(
     "⚠️ TensorFlow.js n'a pas pu être chargé. La reconnaissance faciale pourrait ne pas fonctionner correctement.",
@@ -17,7 +18,11 @@ try {
 const app = express()
 
 // Middleware
-app.use(cors())
+app.use(
+  cors({
+    origin: "*",
+  }),
+)
 app.use(express.json({ limit: "50mb" }))
 app.use(express.urlencoded({ limit: "50mb", extended: true }))
 
@@ -32,6 +37,18 @@ const tempDir = path.join(__dirname, "uploads", "temp")
     require("fs").mkdirSync(dir, { recursive: true })
   }
 })
+
+// Configuration de Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/")
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname)
+  },
+})
+
+const upload = multer({ storage: storage })
 
 // Connexion à MongoDB avec retry
 const connectWithRetry = async () => {

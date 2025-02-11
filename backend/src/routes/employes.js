@@ -39,18 +39,23 @@ router.get("/", auth, async (req, res) => {
 })
 
 // POST /api/employes
-router.post("/", auth, verificationRole(["admin", "rh"]), upload.single("photo"), async (req, res) => {
+router.post("/", auth, verificationRole(["admin", "rh"]), upload.array("photos", 3), async (req, res) => {
   try {
+    console.log("Données reçues:", req.body)
+    console.log("Fichiers reçus:", req.files)
+
     const { nom, prenom, email, motDePasse, poste, role } = req.body
 
-    if (!req.file) {
-      return res.status(400).json({ message: "La photo est requise" })
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "Au moins une photo est requise" })
     }
 
     const employeExistant = await Employe.findOne({ email })
     if (employeExistant) {
       return res.status(400).json({ message: "Cet email est déjà utilisé" })
     }
+
+    const photos = req.files.map((file) => `/uploads/photos/${file.filename}`)
 
     const employe = new Employe({
       nom,
@@ -59,7 +64,8 @@ router.post("/", auth, verificationRole(["admin", "rh"]), upload.single("photo")
       motDePasse,
       poste,
       role: role || "employe",
-      photo: `/uploads/photos/${req.file.filename}`,
+      photo: photos[0], // Use the first photo as the main photo
+      photos: photos, // Store all photos
     })
 
     await employe.save()
@@ -73,11 +79,12 @@ router.post("/", auth, verificationRole(["admin", "rh"]), upload.single("photo")
 })
 
 // PUT /api/employes/:id
-router.put("/:id", auth, verificationRole(["admin", "rh"]), upload.single("photo"), async (req, res) => {
+router.put("/:id", auth, verificationRole(["admin", "rh"]), upload.array("photos", 3), async (req, res) => {
   try {
     const updates = { ...req.body }
-    if (req.file) {
-      updates.photo = `/uploads/photos/${req.file.filename}`
+    if (req.files && req.files.length > 0) {
+      updates.photo = `/uploads/photos/${req.files[0].filename}`
+      updates.photos = req.files.map((file) => `/uploads/photos/${file.filename}`)
     }
 
     const employe = await Employe.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true }).select(
