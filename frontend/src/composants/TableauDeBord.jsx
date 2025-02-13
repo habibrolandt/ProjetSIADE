@@ -39,6 +39,7 @@ export default function TableauDeBord() {
     presentsAujourdhui: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [dernierEmployeReconnu, setDernierEmployeReconnu] = useState(null)
 
   useEffect(() => {
     const fetchStatistiques = async () => {
@@ -54,6 +55,22 @@ export default function TableauDeBord() {
 
     fetchStatistiques()
     const interval = setInterval(fetchStatistiques, 300000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const fetchDernierEmployeReconnu = async () => {
+      try {
+        const response = await api.get("/presences/dernier-reconnu")
+        setDernierEmployeReconnu(response.data)
+      } catch (error) {
+        console.error("Erreur lors de la récupération du dernier employé reconnu:", error)
+      }
+    }
+
+    fetchDernierEmployeReconnu()
+    const interval = setInterval(fetchDernierEmployeReconnu, 10000) // Vérifier toutes les 10 secondes
     return () => clearInterval(interval)
   }, [])
 
@@ -159,6 +176,29 @@ export default function TableauDeBord() {
           )}
         </Card.Body>
       </Card>
+      {dernierEmployeReconnu && (
+        <Card className="mt-4">
+          <Card.Body>
+            <Card.Title>Dernier employé reconnu</Card.Title>
+            <div className="d-flex align-items-center">
+              <img
+                src={dernierEmployeReconnu.photo || "/placeholder.svg"}
+                alt={`${dernierEmployeReconnu.prenom} ${dernierEmployeReconnu.nom}`}
+                className="rounded-circle me-3"
+                width="64"
+                height="64"
+              />
+              <div>
+                <h3 className="h5 mb-1">
+                  {dernierEmployeReconnu.prenom} {dernierEmployeReconnu.nom}
+                </h3>
+                <p className="text-muted mb-0">{dernierEmployeReconnu.poste}</p>
+                <p className="mb-0">Reconnu le {new Date(dernierEmployeReconnu.dateReconnaissance).toLocaleString()}</p>
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+      )}
     </Container>
   )
 }

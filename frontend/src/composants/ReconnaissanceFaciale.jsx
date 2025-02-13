@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect, useCallback } from "react"
-import { Container, Row, Col, Card, Alert, ProgressBar } from "react-bootstrap"
+import { Container, Row, Col, Card, Alert, ProgressBar, Button } from "react-bootstrap"
 import Webcam from "react-webcam"
 import api from "../services/api"
 import { toast } from "react-toastify"
@@ -11,15 +11,17 @@ export default function ReconnaissanceFaciale() {
   const [loading, setLoading] = useState(false)
   const [resultat, setResultat] = useState(null)
   const [error, setError] = useState(null)
+  const [autoReconnaissance, setAutoReconnaissance] = useState(true)
 
   const captureImage = useCallback(() => {
-    const imageSrc = webcamRef.current.getScreenshot()
+    const imageSrc = webcamRef.current?.getScreenshot()
     return imageSrc
   }, [])
 
   const handleReconnaissance = useCallback(async () => {
+    if (loading) return
+
     setLoading(true)
-    setResultat(null)
     setError(null)
 
     try {
@@ -34,29 +36,36 @@ export default function ReconnaissanceFaciale() {
 
       if (response.data.success) {
         setResultat(response.data)
-        toast.success("Présence enregistrée avec succès")
+        toast.success(`Bienvenue, ${response.data.employe.prenom} ${response.data.employe.nom}!`)
       } else {
-        setError("Personne non reconnue. Veuillez réessayer ou contacter un administrateur.")
-        toast.warning("Personne non reconnue")
+        setError("Personne non reconnue. Veuillez réessayer.")
+        setResultat(null)
       }
     } catch (error) {
       console.error("Erreur détaillée lors de la reconnaissance:", error.response || error)
       setError("Erreur lors de la reconnaissance faciale. Veuillez réessayer.")
-      toast.error("Erreur lors de la reconnaissance faciale")
+      setResultat(null)
     } finally {
       setLoading(false)
     }
-  }, [captureImage])
+  }, [captureImage, setLoading, setError, setResultat, toast]) // Added dependencies to useCallback
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loading) {
+    let interval
+    if (autoReconnaissance) {
+      interval = setInterval(() => {
         handleReconnaissance()
-      }
-    }, 5000) // Essayer la reconnaissance toutes les 5 secondes
+      }, 5000) // Essayer la reconnaissance toutes les 5 secondes
+    }
 
-    return () => clearInterval(interval)
-  }, [handleReconnaissance, loading])
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [handleReconnaissance, autoReconnaissance])
+
+  const toggleAutoReconnaissance = () => {
+    setAutoReconnaissance((prev) => !prev)
+  }
 
   return (
     <Container className="py-4 fade-in">
@@ -77,6 +86,18 @@ export default function ReconnaissanceFaciale() {
                 />
               </div>
 
+              <Button onClick={handleReconnaissance} disabled={loading} className="w-100 mb-2">
+                {loading ? "Reconnaissance en cours..." : "Lancer la reconnaissance"}
+              </Button>
+
+              <Button
+                onClick={toggleAutoReconnaissance}
+                variant={autoReconnaissance ? "danger" : "success"}
+                className="w-100"
+              >
+                {autoReconnaissance ? "Désactiver" : "Activer"} la reconnaissance automatique
+              </Button>
+
               {error && (
                 <Alert variant="danger" className="mt-3">
                   {error}
@@ -91,11 +112,13 @@ export default function ReconnaissanceFaciale() {
             <Card.Body>
               <h2 className="h4 mb-3">Résultat</h2>
 
+              {loading && <p className="text-center">Reconnaissance en cours...</p>}
+
               {resultat ? (
                 <div className="fade-in">
                   <div className="d-flex align-items-center mb-3">
                     <img
-                      src={resultat.photo || "/placeholder.svg"}
+                      src={resultat.employe.photo || "/placeholder.svg"}
                       alt="Photo de l'employé"
                       className="rounded-circle me-3"
                       width="64"
@@ -103,9 +126,9 @@ export default function ReconnaissanceFaciale() {
                     />
                     <div>
                       <h3 className="h5 mb-1">
-                        {resultat.prenom} {resultat.nom}
+                        {resultat.employe.prenom} {resultat.employe.nom}
                       </h3>
-                      <p className="text-muted mb-0">{resultat.poste}</p>
+                      <p className="text-muted mb-0">{resultat.employe.poste}</p>
                     </div>
                   </div>
 

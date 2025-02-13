@@ -6,6 +6,18 @@ import Webcam from "react-webcam"
 import api from "../services/api"
 import { toast } from "react-toastify"
 
+const dataURLtoFile = (dataurl, filename) => {
+  let arr = dataurl.split(","),
+    mime = arr[0].match(/:(.*?);/)[1],
+    bstr = atob(arr[1]),
+    n = bstr.length,
+    u8arr = new Uint8Array(n)
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n)
+  }
+  return new File([u8arr], filename, { type: mime })
+}
+
 export default function GestionEmployes() {
   const [employes, setEmployes] = useState([])
   const [formData, setFormData] = useState({
@@ -59,7 +71,7 @@ export default function GestionEmployes() {
       setCurrentAngle(0)
       toast.success("Visage enregistré avec succès sous différents angles !")
     }
-  }, [webcamRef, currentAngle, setPhotos, setShowWebcam, setCurrentAngle, toast])
+  }, [currentAngle]) // Removed unnecessary dependencies
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -69,13 +81,13 @@ export default function GestionEmployes() {
     try {
       const formDataToSend = new FormData()
       Object.keys(formData).forEach((key) => {
-        if (formData[key] !== null) {
+        if (formData[key] !== null && formData[key] !== "") {
           formDataToSend.append(key, formData[key])
         }
       })
 
       photos.forEach((photo, index) => {
-        formDataToSend.append(`photo${index}`, dataURLtoFile(photo, `photo${index}.jpg`))
+        formDataToSend.append("photos", dataURLtoFile(photo, `photo${index}.jpg`))
       })
 
       console.log("Données envoyées:", Object.fromEntries(formDataToSend))
@@ -89,7 +101,11 @@ export default function GestionEmployes() {
         })
         toast.success("Employé ajouté avec succès")
       } else {
-        response = await api.put(`/employes/${selectedId}`, formDataToSend)
+        response = await api.put(`/employes/${selectedId}`, formDataToSend, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        })
         toast.success("Employé modifié avec succès")
       }
 
@@ -106,18 +122,6 @@ export default function GestionEmployes() {
     }
   }
 
-  const dataURLtoFile = (dataurl, filename) => {
-    let arr = dataurl.split(","),
-      mime = arr[0].match(/:(.*?);/)[1],
-      bstr = atob(arr[1]),
-      n = bstr.length,
-      u8arr = new Uint8Array(n)
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n)
-    }
-    return new File([u8arr], filename, { type: mime })
-  }
-
   const handleEdit = (employe) => {
     setFormData({
       nom: employe.nom,
@@ -130,6 +134,7 @@ export default function GestionEmployes() {
     })
     setSelectedId(employe._id)
     setMode("edition")
+    setPhotos([]) // Clear photos array when editing
   }
 
   const handleDelete = async (id) => {
@@ -373,17 +378,5 @@ export default function GestionEmployes() {
       </Modal>
     </Container>
   )
-}
-
-function dataURLtoFile(dataurl, filename) {
-  let arr = dataurl.split(","),
-    mime = arr[0].match(/:(.*?);/)[1],
-    bstr = atob(arr[1]),
-    n = bstr.length,
-    u8arr = new Uint8Array(n)
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n)
-  }
-  return new File([u8arr], filename, { type: mime })
 }
 
